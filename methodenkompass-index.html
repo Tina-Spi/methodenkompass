@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MethodenKompass – Unterrichtsplanung mit KI</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,800;1,9..144,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a2e;
+    --cream: #f5f0e8;
+    --warm: #e8dfc8;
+    --sage: #6b8f71;
+    --sage-light: #a8c5ad;
+    --rust: #c0543a;
+    --gold: #d4a843;
+    --gold-light: #f0d898;
+    --muted: #7a7065;
+    --border: #d4cbbf;
+    --card: #faf7f2;
+    --shadow: 0 2px 24px rgba(26,26,46,0.08);
+    --shadow-lg: 0 8px 48px rgba(26,26,46,0.14);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--ink);
+    color: var(--cream);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 2px solid var(--gold);
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .logo span { color: var(--gold); }
+  .logo-sub {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--sage-light);
+    margin-top: 2px;
+  }
+  .logo-group { display: flex; flex-direction: column; }
+
+  /* API key badge in header */
+  .api-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 0.4rem 0.8rem;
+    border-radius: 100px;
+    border: 1px solid rgba(245,240,232,0.15);
+    transition: all 0.2s;
+    color: rgba(245,240,232,0.5);
+  }
+  .api-status:hover { border-color: rgba(245,240,232,0.4); color: var(--cream); }
+  .api-status.connected { color: var(--sage-light); border-color: rgba(168,197,173,0.4); }
+  .api-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+  /* ── STEPS ── */
+  .steps-nav { display: flex; gap: 0; align-items: center; }
+  .step-dot {
+    display: flex; align-items: center; gap: 0.5rem;
+    color: rgba(245,240,232,0.4);
+    font-size: 0.75rem; font-weight: 500; letter-spacing: 0.5px;
+    padding: 0 1rem; transition: color 0.3s;
+  }
+  .step-dot.active { color: var(--gold); }
+  .step-dot.done { color: var(--sage-light); }
+  .step-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(245,240,232,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 600;
+    border: 1.5px solid currentColor; transition: all 0.3s;
+  }
+  .step-dot.active .step-num { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+  .step-dot.done .step-num { background: var(--sage); border-color: var(--sage); color: white; }
+
+  /* ── API KEY MODAL ── */
+  .modal-bg {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(26,26,46,0.6);
+    backdrop-filter: blur(6px);
+    z-index: 300;
+    align-items: center; justify-content: center;
+  }
+  .modal-bg.visible { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 2.2rem;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: var(--shadow-lg);
+    animation: fadeUp 0.3s ease;
+  }
+  .modal-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.4rem; font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+  .modal-sub { font-size: 0.88rem; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.5; }
+  .modal-sub a { color: var(--sage); text-decoration: none; }
+  .modal-sub a:hover { text-decoration: underline; }
+  .api-input-wrap { position: relative; }
+  .api-input-wrap input {
+    width: 100%; padding: 0.75rem 2.8rem 0.75rem 0.9rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.92rem;
+    color: var(--ink); background: white;
+    letter-spacing: 0.5px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .api-input-wrap input:focus {
+    outline: none; border-color: var(--sage);
+    box-shadow: 0 0 0 3px rgba(107,143,113,0.15);
+  }
+  .toggle-vis {
+    position: absolute; right: 0.7rem; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 1rem; padding: 0.2rem;
+  }
+  .save-notice {
+    font-size: 0.78rem; color: var(--muted); margin-top: 0.6rem;
+    display: flex; align-items: center; gap: 0.3rem;
+  }
+  .modal-actions { display: flex; gap: 0.8rem; margin-top: 1.4rem; justify-content: flex-end; }
+  .info-box {
+    background: var(--warm); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.8rem 1rem;
+    font-size: 0.82rem; color: var(--muted); margin-top: 1rem;
+    line-height: 1.5;
+  }
+  .info-box strong { color: var(--ink); }
+
+  /* ── MAIN ── */
+  main { max-width: 900px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+  .section { display: none; animation: fadeUp 0.4s ease; }
+  .section.active { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .page-title {
+    font-family: 'Fraunces', serif;
+    font-size: 2.2rem; font-weight: 600; line-height: 1.2;
+    margin-bottom: 0.4rem; color: var(--ink);
+  }
+  .page-sub { color: var(--muted); font-size: 0.95rem; margin-bottom: 2rem; font-weight: 300; }
+
+  .card {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 1.8rem; margin-bottom: 1.2rem;
+    box-shadow: var(--shadow);
+  }
+  .card-title {
+    font-family: 'Fraunces', serif; font-size: 1.05rem; font-weight: 600;
+    margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem;
+    color: var(--ink);
+  }
+  .card-title .icon {
+    width: 28px; height: 28px; background: var(--gold-light);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.8rem; }
+
+  label {
+    display: block; font-size: 0.8rem; font-weight: 500;
+    letter-spacing: 0.4px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 0.4rem;
+  }
+  input[type="text"], textarea, select {
+    width: 100%; padding: 0.7rem 0.9rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: white; font-family: 'DM Sans', sans-serif;
+    font-size: 0.92rem; color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s; appearance: none;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none; border-color: var(--sage);
+    box-shadow: 0 0 0 3px rgba(107,143,113,0.15);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  .form-group { margin-bottom: 0; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chip {
+    padding: 0.4rem 0.9rem; border: 1.5px solid var(--border);
+    border-radius: 100px; font-size: 0.82rem; cursor: pointer;
+    transition: all 0.2s; background: white; color: var(--muted);
+    font-weight: 400; user-select: none;
+  }
+  .chip:hover { border-color: var(--sage); color: var(--sage); }
+  .chip.selected { background: var(--sage); border-color: var(--sage); color: white; font-weight: 500; }
+
+  .phase-row {
+    display: grid; grid-template-columns: 180px 1fr 100px auto;
+    gap: 0.8rem; align-items: center;
+    padding: 0.8rem 1rem; border: 1.5px solid var(--border);
+    border-radius: 8px; background: white; margin-bottom: 0.6rem;
+    transition: all 0.2s;
+  }
+  .phase-row:hover { border-color: var(--sage-light); }
+  .phase-label {
+    font-size: 0.82rem; font-weight: 500; color: var(--sage);
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .phase-label .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sage); flex-shrink: 0; }
+  .phase-row input[type="text"] { padding: 0.5rem 0.7rem; font-size: 0.88rem; }
+  .phase-row input[type="number"] {
+    padding: 0.5rem 0.7rem; font-size: 0.88rem; width: 100%;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    background: white; font-family: 'DM Sans', sans-serif; color: var(--ink);
+  }
+  .phase-row input[type="number"]:focus {
+    outline: none; border-color: var(--sage);
+    box-shadow: 0 0 0 3px rgba(107,143,113,0.15);
+  }
+
+  .btn-remove {
+    background: none; border: none; cursor: pointer;
+    color: var(--border); font-size: 1.1rem; padding: 0.3rem;
+    border-radius: 4px; transition: all 0.2s; line-height: 1;
+  }
+  .btn-remove:hover { color: var(--rust); background: rgba(192,84,58,0.08); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.75rem 1.5rem; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    font-weight: 500; cursor: pointer; transition: all 0.2s;
+    border: none; letter-spacing: 0.2px;
+  }
+  .btn-primary { background: var(--ink); color: var(--cream); }
+  .btn-primary:hover { background: #2d2d4a; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(26,26,46,0.25); }
+  .btn-gold { background: var(--gold); color: var(--ink); font-weight: 600; }
+  .btn-gold:hover { background: #c49a35; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(212,168,67,0.35); }
+  .btn-outline { background: transparent; color: var(--ink); border: 1.5px solid var(--border); }
+  .btn-outline:hover { border-color: var(--ink); background: rgba(26,26,46,0.04); }
+  .btn-sage { background: var(--sage); color: white; }
+  .btn-sage:hover { background: #5a7a60; transform: translateY(-1px); }
+  .btn-sm { padding: 0.5rem 1rem; font-size: 0.82rem; }
+  .btn-row { display: flex; gap: 0.8rem; margin-top: 1.5rem; align-items: center; }
+  .btn-row .spacer { flex: 1; }
+
+  /* ── LOADING ── */
+  #loading-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(245,240,232,0.85); backdrop-filter: blur(4px);
+    z-index: 200; align-items: center; justify-content: center;
+    flex-direction: column; gap: 1.5rem;
+  }
+  #loading-overlay.visible { display: flex; }
+  .spinner {
+    width: 48px; height: 48px; border: 3px solid var(--border);
+    border-top-color: var(--sage); border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-family: 'Fraunces', serif; font-size: 1.1rem; color: var(--ink); font-style: italic; }
+  .loading-sub { font-size: 0.82rem; color: var(--muted); text-align: center; max-width: 260px; }
+
+  /* ── RESULTS ── */
+  .result-header {
+    background: var(--ink); color: var(--cream);
+    border-radius: 12px 12px 0 0; padding: 1.5rem 1.8rem; margin-bottom: 0;
+  }
+  .result-title { font-family: 'Fraunces', serif; font-size: 1.4rem; font-weight: 600; margin-bottom: 0.3rem; }
+  .result-meta { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .meta-tag {
+    font-size: 0.75rem; padding: 0.25rem 0.7rem; border-radius: 100px;
+    background: rgba(245,240,232,0.1); border: 1px solid rgba(245,240,232,0.2);
+    color: var(--sage-light); font-weight: 500; letter-spacing: 0.3px;
+  }
+  .phase-result { border: 1.5px solid var(--border); border-top: none; background: var(--card); }
+  .phase-result:last-of-type { border-radius: 0 0 12px 12px; }
+  .phase-result-header {
+    padding: 1rem 1.8rem; background: var(--warm);
+    border-bottom: 1.5px solid var(--border);
+    display: flex; align-items: center; gap: 0.8rem;
+  }
+  .phase-badge { font-size: 0.7rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .phase-name-result { font-family: 'Fraunces', serif; font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+  .phase-duration-badge { margin-left: auto; font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 0.3rem; }
+  .methods-list { padding: 1.2rem 1.8rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+  .method-card { background: white; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; transition: box-shadow 0.2s; }
+  .method-card:hover { box-shadow: var(--shadow); }
+  .method-header { padding: 0.9rem 1.2rem; display: flex; align-items: center; gap: 0.8rem; cursor: pointer; user-select: none; }
+  .method-num { width: 24px; height: 24px; background: var(--gold-light); color: var(--ink); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; }
+  .method-name { font-family: 'Fraunces', serif; font-size: 1rem; font-weight: 600; flex: 1; }
+  .method-toggle { color: var(--muted); font-size: 0.8rem; transition: transform 0.2s; }
+  .method-toggle.open { transform: rotate(180deg); }
+  .method-body { display: none; padding: 0 1.2rem 1.2rem; border-top: 1.5px solid var(--border); background: #fefefe; }
+  .method-body.open { display: block; }
+  .method-section { margin-top: 0.9rem; }
+  .method-section-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--sage); margin-bottom: 0.3rem; }
+  .method-section p { font-size: 0.88rem; color: #3a3a4a; line-height: 1.65; }
+  .method-rationale { background: var(--gold-light); border-radius: 6px; padding: 0.6rem 0.9rem; font-size: 0.85rem; font-style: italic; color: #5a4a20; margin-top: 0.9rem; border-left: 3px solid var(--gold); }
+  .tags-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .tag { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 100px; border: 1px solid var(--border); color: var(--muted); }
+
+  .error-box { background: rgba(192,84,58,0.08); border: 1.5px solid rgba(192,84,58,0.3); border-radius: 8px; padding: 1rem 1.2rem; color: var(--rust); font-size: 0.88rem; margin-top: 1rem; display: none; }
+
+  .divider { height: 1.5px; background: var(--border); margin: 1.5rem 0; }
+
+  .add-phase-btn {
+    width: 100%; padding: 0.6rem; border: 1.5px dashed var(--border);
+    border-radius: 8px; background: transparent; color: var(--muted);
+    cursor: pointer; font-size: 0.85rem; font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.4rem; margin-top: 0.4rem;
+  }
+  .add-phase-btn:hover { border-color: var(--sage); color: var(--sage); background: rgba(107,143,113,0.04); }
+
+  @media (max-width: 600px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .phase-row { grid-template-columns: 1fr 1fr; }
+    .steps-nav { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="logo-group">
+    <div class="logo">⬡ Methoden<span>Kompass</span></div>
+    <div class="logo-sub">Unterrichtsplanung mit KI</div>
+  </div>
+  <nav class="steps-nav">
+    <div class="step-dot active" id="nav-1"><div class="step-num">1</div> Basisinfos</div>
+    <div class="step-dot" id="nav-2"><div class="step-num">2</div> Phasen</div>
+    <div class="step-dot" id="nav-3"><div class="step-num">3</div> Empfehlungen</div>
+  </nav>
+  <div class="api-status" id="api-status-btn" onclick="openApiModal()" title="API-Key verwalten">
+    <div class="api-dot"></div>
+    <span id="api-status-text">API-Key eingeben</span>
+  </div>
+</header>
+
+<!-- ─── API KEY MODAL ─── -->
+<div class="modal-bg" id="api-modal">
+  <div class="modal">
+    <div class="modal-title">🔑 Claude API-Key</div>
+    <div class="modal-sub">
+      Ihr API-Key wird <strong>nur lokal in Ihrem Browser</strong> gespeichert und nie an andere Server übertragen.<br><br>
+      Noch keinen Key? Kostenlos erstellen unter
+      <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
+    </div>
+    <div class="api-input-wrap">
+      <input type="password" id="api-key-input" placeholder="sk-ant-api03-…">
+      <button class="toggle-vis" onclick="toggleKeyVisibility()" title="Anzeigen/Verbergen">👁</button>
+    </div>
+    <div class="save-notice">🔒 Wird im localStorage Ihres Browsers gespeichert – nicht auf Servern.</div>
+    <div class="info-box">
+      <strong>Hinweis zu den Kosten:</strong> Jede Anfrage an Claude kostet ca. 0,2–0,5 Cent (je nach Länge der Planung). Ein kostenfreies Guthaben ist beim ersten Registrieren verfügbar.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeApiModal()">Abbrechen</button>
+      <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── LOADING ─── -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Methoden werden gesucht…</div>
+  <div class="loading-sub">Die KI analysiert Ihre Unterrichtsplanung und wählt passende Methoden aus.</div>
+</div>
+
+<main>
+
+  <!-- ─── SCHRITT 1: BASISINFOS ─── -->
+  <section class="section active" id="s1">
+    <div class="page-title">Unterrichtseinheit planen</div>
+    <div class="page-sub">Beschreiben Sie Ihre Stunde – der MethodenKompass findet passende Methoden für jede Phase.</div>
+
+    <div class="card">
+      <div class="card-title"><div class="icon">📚</div> Grundinformationen</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Unterrichtsthema</label>
+          <input type="text" id="thema" placeholder="z.B. Bruchrechnung einführen">
+        </div>
+        <div class="form-group">
+          <label>Fach</label>
+          <input type="text" id="fach" placeholder="z.B. Mathematik, Deutsch, Geschichte…">
+        </div>
+        <div class="form-group">
+          <label>Schulstufe / Klasse</label>
+          <select id="stufe">
+            <option value="">Bitte wählen…</option>
+            <optgroup label="Volksschule">
+              <option>1. Klasse VS</option><option>2. Klasse VS</option>
+              <option>3. Klasse VS</option><option>4. Klasse VS</option>
+            </optgroup>
+            <optgroup label="Mittelschule / NMS">
+              <option>5. Klasse (MS)</option><option>6. Klasse (MS)</option>
+              <option>7. Klasse (MS)</option><option>8. Klasse (MS)</option>
+            </optgroup>
+            <optgroup label="AHS Unterstufe">
+              <option>1. Klasse AHS</option><option>2. Klasse AHS</option>
+              <option>3. Klasse AHS</option><option>4. Klasse AHS</option>
+            </optgroup>
+            <optgroup label="AHS Oberstufe / BHS">
+              <option>5. Klasse (AHS/BHS)</option><option>6. Klasse</option>
+              <option>7. Klasse</option><option>8. Klasse / Matura</option>
+            </optgroup>
+            <option value="Berufsschule">Berufsschule</option>
+            <option value="Erwachsenenbildung">Erwachsenenbildung</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Unterrichtsdauer (Minuten)</label>
+          <input type="text" id="dauer" placeholder="z.B. 50">
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="form-group">
+        <label>Lernziel der Stunde</label>
+        <textarea id="lernziel" placeholder="Was sollen die Schüler/innen am Ende der Stunde können, wissen oder verstehen?"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><div class="icon">👥</div> Sozialform-Präferenzen</div>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem;">Welche Sozialformen sollen bevorzugt eingesetzt werden? (Mehrfachauswahl möglich)</p>
+      <div class="chips" id="sozialformen-chips">
+        <div class="chip selected" data-val="Einzelarbeit">Einzelarbeit</div>
+        <div class="chip selected" data-val="Partnerarbeit">Partnerarbeit</div>
+        <div class="chip selected" data-val="Gruppenarbeit">Gruppenarbeit</div>
+        <div class="chip" data-val="Plenum">Plenum</div>
+        <div class="chip" data-val="Stationenbetrieb">Stationenbetrieb</div>
+        <div class="chip" data-val="Freiarbeit">Freiarbeit</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><div class="icon">🎯</div> Besondere Anforderungen (optional)</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Vorwissen der Klasse</label>
+          <select id="vorwissen">
+            <option value="">keine Angabe</option>
+            <option>Kein Vorwissen</option>
+            <option>Geringes Vorwissen</option>
+            <option>Mittleres Vorwissen</option>
+            <option>Umfangreiches Vorwissen</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Besonderheiten der Klasse</label>
+          <input type="text" id="besonderheiten" placeholder="z.B. heterogene Gruppe, DaZ…">
+        </div>
+      </div>
+    </div>
+
+    <div class="error-box" id="error-1">Bitte füllen Sie mindestens Thema, Fach, Schulstufe und Lernziel aus.</div>
+
+    <div class="btn-row">
+      <div class="spacer"></div>
+      <button class="btn btn-primary" onclick="goToStep2()">Weiter zu den Phasen →</button>
+    </div>
+  </section>
+
+  <!-- ─── SCHRITT 2: PHASEN ─── -->
+  <section class="section" id="s2">
+    <div class="page-title">Phasenstruktur</div>
+    <div class="page-sub">Definieren Sie die didaktischen Phasen Ihrer Unterrichtseinheit.</div>
+
+    <div class="card">
+      <div class="card-title"><div class="icon">🏗️</div> Vorlage wählen</div>
+      <div class="grid-3">
+        <button class="btn btn-outline btn-sm" onclick="loadTemplate('4phase')">4-Phasen-Modell</button>
+        <button class="btn btn-outline btn-sm" onclick="loadTemplate('3phase')">Einstieg–Kern–Schluss</button>
+        <button class="btn btn-outline btn-sm" onclick="loadTemplate('5phase')">5E-Modell (Inquiry)</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><div class="icon">📋</div> Phasen Ihrer Stunde</div>
+      <div id="phases-container"></div>
+      <button class="add-phase-btn" onclick="addPhase()">+ Phase hinzufügen</button>
+    </div>
+
+    <div class="error-box" id="error-2">Bitte geben Sie mindestens eine Phase an.</div>
+
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="goToStep(1)">← Zurück</button>
+      <div class="spacer"></div>
+      <button class="btn btn-gold" onclick="generateMethods()">✦ Methoden empfehlen lassen</button>
+    </div>
+  </section>
+
+  <!-- ─── SCHRITT 3: ERGEBNISSE ─── -->
+  <section class="section" id="s3">
+    <div class="page-title">Methodenempfehlungen</div>
+    <div class="page-sub">KI-generierte Methodenempfehlungen für Ihre Unterrichtseinheit.</div>
+    <div id="results-container"></div>
+    <div class="btn-row" style="margin-top:2rem;">
+      <button class="btn btn-outline" onclick="goToStep(2)">← Phasen bearbeiten</button>
+      <div class="spacer"></div>
+      <button class="btn btn-sage" onclick="exportTxt()">⬇ Exportieren (.txt)</button>
+      <button class="btn btn-primary" onclick="resetAll()">Neue Planung</button>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ─── API KEY MANAGEMENT ──────────────────────────────────────────
+const API_KEY_STORAGE = 'methodenkompass_apikey';
+
+function getApiKey() {
+  return localStorage.getItem(API_KEY_STORAGE) || '';
+}
+
+function saveApiKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val) { alert('Bitte einen API-Key eingeben.'); return; }
+  if (!val.startsWith('sk-ant')) {
+    if (!confirm('Der Key sieht ungewöhnlich aus (beginnt nicht mit sk-ant…). Trotzdem speichern?')) return;
+  }
+  localStorage.setItem(API_KEY_STORAGE, val);
+  updateApiStatus();
+  closeApiModal();
+}
+
+function updateApiStatus() {
+  const key = getApiKey();
+  const btn = document.getElementById('api-status-btn');
+  const txt = document.getElementById('api-status-text');
+  if (key) {
+    btn.classList.add('connected');
+    txt.textContent = 'sk-ant-…' + key.slice(-4);
+  } else {
+    btn.classList.remove('connected');
+    txt.textContent = 'API-Key eingeben';
+  }
+}
+
+function openApiModal() {
+  const key = getApiKey();
+  document.getElementById('api-key-input').value = key;
+  document.getElementById('api-modal').classList.add('visible');
+}
+
+function closeApiModal() {
+  document.getElementById('api-modal').classList.remove('visible');
+}
+
+function toggleKeyVisibility() {
+  const inp = document.getElementById('api-key-input');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// Close modal on background click
+document.getElementById('api-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeApiModal();
+});
+
+// ─── STATE ───────────────────────────────────────────────────────
+let phases = [];
+let phaseCounter = 0;
+let results = null;
+
+const PHASE_COLORS = ['#6b8f71','#c0543a','#d4a843','#5b7fa6','#8f6b8f','#5a7a60'];
+
+// ─── CHIPS ───────────────────────────────────────────────────────
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => c.classList.toggle('selected'));
+});
+
+function getSelectedChips(containerId) {
+  return [...document.querySelectorAll(`#${containerId} .chip.selected`)].map(c => c.dataset.val);
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────────
+function goToStep(n) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('s'+n).classList.add('active');
+  document.querySelectorAll('.step-dot').forEach((d,i) => {
+    d.classList.remove('active','done');
+    if (i+1 === n) d.classList.add('active');
+    else if (i+1 < n) d.classList.add('done');
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function goToStep2() {
+  const thema = document.getElementById('thema').value.trim();
+  const fach = document.getElementById('fach').value.trim();
+  const stufe = document.getElementById('stufe').value;
+  const lernziel = document.getElementById('lernziel').value.trim();
+  const err = document.getElementById('error-1');
+  if (!thema || !fach || !stufe || !lernziel) { err.style.display='block'; return; }
+  err.style.display='none';
+  if (phases.length === 0) loadTemplate('4phase');
+  goToStep(2);
+}
+
+function resetAll() {
+  document.getElementById('thema').value = '';
+  document.getElementById('fach').value = '';
+  document.getElementById('stufe').value = '';
+  document.getElementById('lernziel').value = '';
+  document.getElementById('dauer').value = '';
+  document.getElementById('vorwissen').value = '';
+  document.getElementById('besonderheiten').value = '';
+  document.querySelectorAll('.chip').forEach(c => {
+    c.classList.toggle('selected', ['Einzelarbeit','Partnerarbeit','Gruppenarbeit'].includes(c.dataset.val));
+  });
+  phases = []; phaseCounter = 0; results = null;
+  loadTemplate('4phase');
+  goToStep(1);
+}
+
+// ─── TEMPLATES ───────────────────────────────────────────────────
+const TEMPLATES = {
+  '4phase': [
+    { name:'Einstieg', hint:'Motivation, Aktivierung, Problemstellung', min:8 },
+    { name:'Erarbeitung', hint:'Neue Inhalte erarbeiten, Entdecken, Verstehen', min:20 },
+    { name:'Sicherung', hint:'Ergebnisse sichern, üben, wiederholen', min:15 },
+    { name:'Abschluss', hint:'Reflexion, Transfer, Hausübung', min:7 },
+  ],
+  '3phase': [
+    { name:'Einstieg', hint:'Vorwissen aktivieren, ins Thema einführen', min:10 },
+    { name:'Hauptphase', hint:'Kerninhalte erarbeiten und verstehen', min:30 },
+    { name:'Schlussphase', hint:'Zusammenfassung, Sicherung, Ausblick', min:10 },
+  ],
+  '5phase': [
+    { name:'Engage (Einstieg)', hint:'Neugier wecken, Fragen aufwerfen', min:7 },
+    { name:'Explore (Erkundung)', hint:'Selbstständiges Entdecken und Untersuchen', min:12 },
+    { name:'Explain (Erklärung)', hint:'Konzepte klären und Fachsprache einführen', min:12 },
+    { name:'Elaborate (Vertiefung)', hint:'Anwenden, Transfer, Verknüpfungen', min:12 },
+    { name:'Evaluate (Auswertung)', hint:'Reflexion und Bewertung des Lernens', min:7 },
+  ],
+};
+
+function loadTemplate(key) {
+  phases = []; phaseCounter = 0;
+  TEMPLATES[key].forEach(p => {
+    phases.push({ id: ++phaseCounter, name: p.name, desc: '', hint: p.hint, min: p.min });
+  });
+  renderPhases();
+}
+
+// ─── PHASE RENDERING ─────────────────────────────────────────────
+function renderPhases() {
+  const cont = document.getElementById('phases-container');
+  cont.innerHTML = '';
+  phases.forEach((p,idx) => {
+    const color = PHASE_COLORS[idx % PHASE_COLORS.length];
+    const row = document.createElement('div');
+    row.className = 'phase-row';
+    row.id = 'phase-row-'+p.id;
+    row.innerHTML = `
+      <div class="phase-label">
+        <div class="dot" style="background:${color}"></div>
+        <input type="text" value="${p.name}" placeholder="Phasenname"
+          style="border:none;background:transparent;font-size:0.88rem;font-weight:500;color:${color};padding:0;width:100%"
+          oninput="updatePhase(${p.id},'name',this.value)">
+      </div>
+      <input type="text" value="${p.desc}" placeholder="${p.hint || 'Kurze Beschreibung dieser Phase…'}"
+        oninput="updatePhase(${p.id},'desc',this.value)">
+      <div style="display:flex;align-items:center;gap:0.3rem;">
+        <input type="number" value="${p.min}" min="1" max="180" placeholder="Min"
+          oninput="updatePhase(${p.id},'min',this.value)">
+        <span style="font-size:0.78rem;color:var(--muted);white-space:nowrap">min</span>
+      </div>
+      <button class="btn-remove" onclick="removePhase(${p.id})" title="Entfernen">✕</button>
+    `;
+    cont.appendChild(row);
+  });
+}
+
+function addPhase() {
+  phases.push({ id: ++phaseCounter, name: 'Phase '+(phases.length+1), desc: '', hint:'', min: 10 });
+  renderPhases();
+  document.querySelectorAll('.phase-row').slice(-1)[0]?.querySelector('input[type="text"]')?.focus();
+}
+
+function removePhase(id) {
+  if (phases.length <= 1) return;
+  phases = phases.filter(p => p.id !== id);
+  renderPhases();
+}
+
+function updatePhase(id, key, val) {
+  const p = phases.find(p => p.id === id);
+  if (p) p[key] = val;
+}
+
+// ─── SYNC PHASES FROM DOM ────────────────────────────────────────
+function syncPhasesFromDOM() {
+  phases.forEach(p => {
+    const row = document.getElementById('phase-row-'+p.id);
+    if (!row) return;
+    const inputs = row.querySelectorAll('input[type="text"]');
+    p.name = inputs[0]?.value || p.name;
+    p.desc = inputs[1]?.value || p.desc;
+    p.min = row.querySelector('input[type="number"]')?.value || p.min;
+  });
+}
+
+// ─── GENERATE METHODS ────────────────────────────────────────────
+async function generateMethods() {
+  syncPhasesFromDOM();
+
+  const err = document.getElementById('error-2');
+  if (!phases.length) { err.style.display='block'; return; }
+  err.style.display='none';
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    openApiModal();
+    return;
+  }
+
+  const thema = document.getElementById('thema').value;
+  const fach = document.getElementById('fach').value;
+  const stufe = document.getElementById('stufe').value;
+  const lernziel = document.getElementById('lernziel').value;
+  const dauer = document.getElementById('dauer').value;
+  const vorwissen = document.getElementById('vorwissen').value;
+  const besonderheiten = document.getElementById('besonderheiten').value;
+  const sozialformen = getSelectedChips('sozialformen-chips');
+
+  const prompt = `Du bist ein erfahrener Didaktik-Experte und hilfst Lehrpersonen bei der Unterrichtsplanung.
+
+UNTERRICHTSEINHEIT:
+- Thema: ${thema}
+- Fach: ${fach}
+- Schulstufe: ${stufe}
+- Lernziel: ${lernziel}
+- Gesamtdauer: ${dauer} Minuten
+- Vorwissen: ${vorwissen || 'nicht angegeben'}
+- Besonderheiten: ${besonderheiten || 'keine'}
+- Bevorzugte Sozialformen: ${sozialformen.join(', ')}
+
+PHASEN:
+${phases.map((p,i) => `${i+1}. ${p.name} (${p.min} min): ${p.desc || '(keine Beschreibung)'}`).join('\n')}
+
+Erstelle für JEDE Phase 2–3 konkrete Unterrichtsmethoden, die optimal zum Thema, zur Schulstufe und zur Phase passen.
+
+Antworte NUR mit einem JSON-Objekt (kein Markdown, keine Codeblöcke) in diesem Format:
+{
+  "phases": [
+    {
+      "phaseName": "Phasenname",
+      "methods": [
+        {
+          "name": "Name der Methode",
+          "ablauf": "Schritt-für-Schritt Ablauf der Methode (3–5 Sätze)",
+          "materialien": "Benötigte Materialien (kommagetrennte Liste)",
+          "zeitaufwand": "Zeitbedarf innerhalb der Phase",
+          "varianten": "1–2 Variationen oder Differenzierungsmöglichkeiten",
+          "begruendung": "Warum passt diese Methode genau zu dieser Phase und zum Thema? (2 Sätze)"
+        }
+      ]
+    }
+  ]
+}`;
+
+  document.getElementById('loading-overlay').classList.add('visible');
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        alert('Ungültiger API-Key. Bitte prüfen Sie Ihren Key.');
+        openApiModal();
+        return;
+      }
+      throw new Error(err?.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.content?.map(b => b.text||'').join('');
+    const clean = text.replace(/```json|```/g,'').trim();
+    results = JSON.parse(clean);
+    renderResults(thema, fach, stufe, lernziel);
+    goToStep(3);
+  } catch(e) {
+    alert('Fehler: ' + e.message);
+    console.error(e);
+  } finally {
+    document.getElementById('loading-overlay').classList.remove('visible');
+  }
+}
+
+// ─── RENDER RESULTS ──────────────────────────────────────────────
+function renderResults(thema, fach, stufe) {
+  const cont = document.getElementById('results-container');
+  const sozialformen = getSelectedChips('sozialformen-chips');
+  const dauer = document.getElementById('dauer').value;
+
+  let html = `
+    <div class="result-header">
+      <div class="result-title">${thema}</div>
+      <div class="result-meta">
+        <span class="meta-tag">📚 ${fach}</span>
+        <span class="meta-tag">🎓 ${stufe}</span>
+        ${dauer ? `<span class="meta-tag">⏱ ${dauer} min</span>` : ''}
+        ${sozialformen.length ? `<span class="meta-tag">👥 ${sozialformen.join(', ')}</span>` : ''}
+      </div>
+    </div>
+  `;
+
+  if (!results?.phases) {
+    cont.innerHTML = '<p style="color:var(--rust);padding:2rem">Keine Ergebnisse erhalten.</p>';
+    return;
+  }
+
+  results.phases.forEach((phase, pi) => {
+    const color = PHASE_COLORS[pi % PHASE_COLORS.length];
+    const origPhase = phases[pi];
+    html += `
+      <div class="phase-result">
+        <div class="phase-result-header">
+          <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
+          <div>
+            <div class="phase-badge">Phase ${pi+1}</div>
+            <div class="phase-name-result">${phase.phaseName}</div>
+          </div>
+          ${origPhase?.min ? `<div class="phase-duration-badge">⏱ ${origPhase.min} min</div>` : ''}
+        </div>
+        <div class="methods-list">
+    `;
+    (phase.methods||[]).forEach((m, mi) => {
+      const uid = `m-${pi}-${mi}`;
+      html += `
+        <div class="method-card">
+          <div class="method-header" onclick="toggleMethod('${uid}')">
+            <div class="method-num">${mi+1}</div>
+            <div class="method-name">${m.name}</div>
+            <div class="method-toggle" id="tog-${uid}">▼</div>
+          </div>
+          <div class="method-body" id="body-${uid}">
+            <div class="method-rationale">💡 ${m.begruendung}</div>
+            <div class="method-section">
+              <div class="method-section-label">Ablauf</div>
+              <p>${m.ablauf}</p>
+            </div>
+            <div class="method-section">
+              <div class="method-section-label">Materialien & Zeitaufwand</div>
+              <div class="tags-row">
+                ${(m.materialien||'').split(',').map(t => `<span class="tag">📎 ${t.trim()}</span>`).join('')}
+                <span class="tag">⏱ ${m.zeitaufwand}</span>
+              </div>
+            </div>
+            <div class="method-section">
+              <div class="method-section-label">Varianten & Differenzierung</div>
+              <p>${m.varianten}</p>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div></div>`;
+  });
+
+  cont.innerHTML = html;
+}
+
+function toggleMethod(uid) {
+  const body = document.getElementById('body-'+uid);
+  const tog = document.getElementById('tog-'+uid);
+  body.classList.toggle('open');
+  tog.classList.toggle('open');
+}
+
+// ─── EXPORT ──────────────────────────────────────────────────────
+function exportTxt() {
+  const thema = document.getElementById('thema').value;
+  const fach = document.getElementById('fach').value;
+  const stufe = document.getElementById('stufe').value;
+  const lernziel = document.getElementById('lernziel').value;
+  const dauer = document.getElementById('dauer').value;
+
+  let txt = `UNTERRICHTSPLANUNG – METHODENEMPFEHLUNGEN\n${'='.repeat(50)}\n\n`;
+  txt += `Thema:    ${thema}\nFach:     ${fach}\nStufe:    ${stufe}\nDauer:    ${dauer} min\nLernziel: ${lernziel}\n\n`;
+
+  if (results?.phases) {
+    results.phases.forEach((phase, pi) => {
+      const origPhase = phases[pi];
+      txt += `\n${'─'.repeat(40)}\nPHASE ${pi+1}: ${phase.phaseName}`;
+      if (origPhase?.min) txt += ` (${origPhase.min} min)`;
+      txt += `\n${'─'.repeat(40)}\n`;
+      (phase.methods||[]).forEach((m, mi) => {
+        txt += `\nMETHODE ${mi+1}: ${m.name}\n`;
+        txt += `Begründung:   ${m.begruendung}\n`;
+        txt += `Ablauf:       ${m.ablauf}\n`;
+        txt += `Materialien:  ${m.materialien}\n`;
+        txt += `Zeitaufwand:  ${m.zeitaufwand}\n`;
+        txt += `Varianten:    ${m.varianten}\n`;
+      });
+    });
+  }
+
+  const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Unterrichtsplanung_${thema.replace(/\s+/g,'-')}.txt`;
+  a.click();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────
+updateApiStatus();
+loadTemplate('4phase');
+
+// Show API modal on first visit
+if (!getApiKey()) {
+  setTimeout(openApiModal, 600);
+}
+</script>
+</body>
+</html>
